@@ -7,13 +7,14 @@
 #include <fstream>  // Untuk operasi file (ifstream, ofstream)
 #include <sstream>  // Untuk stringstream
 #include <vector>   // Hanya untuk membantu dalam beberapa konversi atau logika, tidak menggantikan array global
+#include <algorithm> // Untuk fungsi transform dan tolower
 
 using namespace std;
 
-// --- KONSTANTA GLOBAL ---
-const int MAX_TRANSAKSI = 1000; // Batas maksimal transaksi, diperbesar untuk simulasi
+// --- GLOBAL CONSTANTS ---
+const int MAX_TRANSAKSI = 1000; // Maximum transaction limit, increased for simulation
 
-// --- ARRAY GLOBAL UNTUK DATA TRANSAKSI ---
+// --- GLOBAL ARRAYS FOR TRANSACTION DATA ---
 string namaPembeli[MAX_TRANSAKSI];
 string namaBaju[MAX_TRANSAKSI];
 int jumlahBeli[MAX_TRANSAKSI];
@@ -21,49 +22,51 @@ double hargaSatuan[MAX_TRANSAKSI];
 double totalBayar[MAX_TRANSAKSI];
 string waktuTransaksi[MAX_TRANSAKSI]; // Format: YYYY-MM-DD HH:MM:SS
 
-// --- VARIABEL GLOBAL LAINNYA ---
-int jumlahTransaksi = 0; // Jumlah transaksi yang saat ini tersimpan
+// --- OTHER GLOBAL VARIABLES ---
+int jumlahTransaksi = 0; // Number of transactions currently stored
 
-// --- PROTOTYPE FUNGSI ---
+// --- FUNCTION PROTOTYPES ---
 void tampilkanHeader();
 void tampilkanMenuUtama();
 void tampilkanMenuAdmin();
 void inputDataPembeli();
 void tampilkanTabelTransaksi();
 void hitungTotalPemasukan();
-void cariTransaksi();
+void cariTransaksi(); // Modified to include search choices
 void tampilkanStatistik();
 void hapusTransaksi();
 void editTransaksi();
 void simpanKeFile();
-void muatDataDariFile(); // Fungsi baru: Memuat data dari file
+void muatDataDariFile(); // Function: Load data from file
 void tampilkanTransaksiTertinggi();
 void tampilkanTransaksiTerendah();
 void selectionSortByTotalBayar();
-void sortTransactionsByDate(); // Fungsi baru: Mengurutkan berdasarkan tanggal
-void filterTransaksiByTanggal(); // Fungsi baru: Filter berdasarkan tanggal
-void filterTransaksiByTotal();   // Fungsi baru: Filter berdasarkan rentang total bayar
-void exportToCSV();              // Fungsi baru: Export data ke CSV
-bool loginUser(string& username, string& role); // Fungsi baru: Simulasi login
+void sortTransactionsByDate(); // Function: Sort by date (newest to oldest)
+void selectionSortByNamaPembeli(); // NEW: Sort by customer name for binary search
+int binarySearchByName(const string& key); // NEW: Binary search by customer name
+void filterTransaksiByTanggal(); // Function: Filter by date range
+void filterTransaksiByTotal();   // Function: Filter by total amount range
+void exportToCSV();              // Function: Export data to CSV
+bool loginUser(string& username, string& role); // Function: Login simulation
 string getCurrentTime();
 void clearScreen();
 void pauseScreen();
 void tampilkanGaris(int panjang);
-bool isLeapYear(int year); // Fungsi helper untuk tanggal
-int daysInMonth(int year, int month); // Fungsi helper untuk tanggal
-bool isValidDate(int year, int month, int day); // Fungsi helper untuk tanggal
+bool isLeapYear(int year); // Helper function for date
+int daysInMonth(int year, int month); // Helper function for date
+bool isValidDate(int year, int month, int day); // Helper function for date
 
 int main() {
-    // Inisialisasi random seed (digunakan oleh fungsi-fungsi lain jika ada)
+    // Initialize random seed (used by other functions if any)
     srand(time(0));
 
-    // Coba muat data saat program dimulai
+    // Try to load data when the program starts
     muatDataDariFile();
 
     string usernameLoggedIn;
     string roleLoggedIn;
 
-    // --- SIMULASI LOGIN ---
+    // --- LOGIN SIMULATION ---
     clearScreen();
     tampilkanHeader();
     cout << "SELAMAT DATANG DI PROGRAM MESIN KASIR" << endl;
@@ -71,7 +74,7 @@ int main() {
     if (!loginUser(usernameLoggedIn, roleLoggedIn)) {
         cout << "\nTerlalu banyak percobaan login gagal. Program akan keluar." << endl;
         pauseScreen();
-        return 1; // Keluar dengan kode error
+        return 1; // Exit with error code
     }
     cout << "\nLogin Berhasil! Selamat datang, " << usernameLoggedIn << " (" << roleLoggedIn << ")." << endl;
     pauseScreen();
@@ -83,7 +86,7 @@ int main() {
         tampilkanHeader();
         tampilkanMenuUtama();
 
-        // Hanya tampilkan menu admin jika role adalah "admin"
+        // Only show admin menu if role is "admin"
         if (roleLoggedIn == "admin") {
             cout << "11. Menu Administrator" << endl;
         }
@@ -93,7 +96,7 @@ int main() {
         cout << "Masukkan pilihan Anda: ";
         cin >> pilihan;
 
-        // Validasi input menu utama
+        // Validate main menu input
         if (cin.fail()) {
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
@@ -101,7 +104,7 @@ int main() {
             pauseScreen();
             continue;
         }
-        cin.ignore(); // Membersihkan buffer
+        cin.ignore(); // Clear buffer
 
         switch (pilihan) {
             case 1: inputDataPembeli(); break;
@@ -151,7 +154,7 @@ int main() {
                 pauseScreen();
                 break;
             case 11:
-                if (roleLoggedIn == "admin") { // Hanya admin yang bisa mengakses menu ini
+                if (roleLoggedIn == "admin") { // Only admin can access this menu
                     int adminPilihan;
                     do {
                         clearScreen();
@@ -223,9 +226,9 @@ int main() {
     return 0;
 }
 
-// --- DEFINISI FUNGSI ---
+// --- FUNCTION DEFINITIONS ---
 
-// Fungsi untuk menampilkan header program
+// Function to display program header
 void tampilkanHeader() {
     tampilkanGaris(60);
     cout << "|" << setw(58) << "PROGRAM MESIN KASIR TOKO BAJU" << setw(2) << "|" << endl;
@@ -236,7 +239,7 @@ void tampilkanHeader() {
     cout << endl;
 }
 
-// Fungsi untuk menampilkan menu utama
+// Function to display main menu
 void tampilkanMenuUtama() {
     cout << "MENU UTAMA:" << endl;
     cout << "1. Input Data Pembeli" << endl;
@@ -249,10 +252,10 @@ void tampilkanMenuUtama() {
     cout << "8. Simpan Data ke File" << endl;
     cout << "9. Tampilkan Transaksi dengan Nilai Tertinggi" << endl;
     cout << "10. Tampilkan Transaksi dengan Nilai Terendah" << endl;
-    // Opsi menu admin akan ditambahkan di main() jika role sesuai
+    // Admin menu option will be added in main() if role is "admin"
 }
 
-// Fungsi untuk menampilkan menu administrator
+// Function to display administrator menu
 void tampilkanMenuAdmin() {
     cout << "MENU ADMINISTRATOR:" << endl;
     cout << "1. Urutkan Transaksi (Total Bayar Ascending)" << endl;
@@ -264,7 +267,7 @@ void tampilkanMenuAdmin() {
     tampilkanGaris(30);
 }
 
-// Fungsi untuk input data pembeli
+// Function to input customer data
 void inputDataPembeli() {
     if (jumlahTransaksi >= MAX_TRANSAKSI) {
         cout << "\nDatabase transaksi sudah penuh! Maksimal " << MAX_TRANSAKSI << " transaksi.\n";
@@ -276,7 +279,7 @@ void inputDataPembeli() {
     cout << "INPUT DATA PEMBELI" << endl;
     tampilkanGaris(30);
 
-    // Input nama pembeli
+    // Input customer name
     cout << "Nama Pembeli: ";
     getline(cin, namaPembeli[jumlahTransaksi]);
     while (namaPembeli[jumlahTransaksi].empty()) {
@@ -284,7 +287,7 @@ void inputDataPembeli() {
         getline(cin, namaPembeli[jumlahTransaksi]);
     }
 
-    // Input nama baju
+    // Input shirt name
     cout << "Nama Baju: ";
     getline(cin, namaBaju[jumlahTransaksi]);
     while (namaBaju[jumlahTransaksi].empty()) {
@@ -292,7 +295,7 @@ void inputDataPembeli() {
         getline(cin, namaBaju[jumlahTransaksi]);
     }
 
-    // Input jumlah beli dengan validasi
+    // Input quantity with validation
     do {
         cout << "Jumlah Beli: ";
         cin >> jumlahBeli[jumlahTransaksi];
@@ -303,7 +306,7 @@ void inputDataPembeli() {
         }
     } while (cin.fail() || jumlahBeli[jumlahTransaksi] <= 0);
 
-    // Input harga satuan dengan validasi
+    // Input unit price with validation
     do {
         cout << "Harga Satuan (Rp): ";
         cin >> hargaSatuan[jumlahTransaksi];
@@ -313,15 +316,15 @@ void inputDataPembeli() {
             cout << "Harga satuan harus berupa angka positif!\n";
         }
     } while (cin.fail() || hargaSatuan[jumlahTransaksi] <= 0);
-    cin.ignore(); // Membersihkan buffer setelah input double/int
+    cin.ignore(); // Clear buffer after double/int input
 
-    // Hitung total bayar
+    // Calculate total payment
     totalBayar[jumlahTransaksi] = jumlahBeli[jumlahTransaksi] * hargaSatuan[jumlahTransaksi];
 
-    // Set waktu transaksi
+    // Set transaction time
     waktuTransaksi[jumlahTransaksi] = getCurrentTime();
 
-    // Tampilkan ringkasan transaksi
+    // Display transaction summary
     cout << "\nRINGKASAN TRANSAKSI:" << endl;
     tampilkanGaris(40);
     cout << "Nama Pembeli: " << namaPembeli[jumlahTransaksi] << endl;
@@ -332,11 +335,11 @@ void inputDataPembeli() {
     cout << "Waktu: " << waktuTransaksi[jumlahTransaksi] << endl;
     tampilkanGaris(40);
 
-    // Konfirmasi penyimpanan
+    // Confirmation for saving
     char konfirmasi;
     cout << "\nSimpan transaksi ini? (y/n): ";
     cin >> konfirmasi;
-    cin.ignore(); // Membersihkan buffer setelah input char
+    cin.ignore(); // Clear buffer after char input
 
     if (konfirmasi == 'y' || konfirmasi == 'Y') {
         jumlahTransaksi++;
@@ -348,13 +351,13 @@ void inputDataPembeli() {
     pauseScreen();
 }
 
-// Fungsi untuk menampilkan tabel transaksi
+// Function to display transaction table
 void tampilkanTabelTransaksi() {
     clearScreen();
     cout << "TABEL TRANSAKSI PENJUALAN BAJU" << endl;
     tampilkanGaris(120);
 
-    // Header tabel
+    // Table header
     cout << "| " << left << setw(3) << "No"
          << " | " << setw(20) << "Nama Pembeli"
          << " | " << setw(15) << "Nama Baju"
@@ -366,7 +369,7 @@ void tampilkanTabelTransaksi() {
 
     tampilkanGaris(120);
 
-    // Data transaksi
+    // Transaction data
     for (int i = 0; i < jumlahTransaksi; i++) {
         cout << "| " << left << setw(3) << (i + 1)
              << " | " << setw(20) << namaPembeli[i].substr(0, 20)
@@ -382,7 +385,7 @@ void tampilkanTabelTransaksi() {
     cout << "Total Transaksi: " << jumlahTransaksi << " transaksi" << endl;
 }
 
-// Fungsi untuk menghitung total pemasukan
+// Function to calculate total income
 void hitungTotalPemasukan() {
     double totalPemasukan = 0;
     int totalBarang = 0;
@@ -409,21 +412,41 @@ void hitungTotalPemasukan() {
     tampilkanGaris(50);
 }
 
-// Fungsi untuk mencari transaksi berdasarkan nama pembeli
+// Function to search for transactions
 void cariTransaksi() {
     clearScreen();
-    cout << "PENCARIAN TRANSAKSI BERDASARKAN NAMA PEMBELI" << endl;
+    cout << "PENCARIAN TRANSAKSI" << endl;
     tampilkanGaris(50);
+
+    if (jumlahTransaksi == 0) {
+        cout << "Belum ada data transaksi untuk dicari!\n";
+        return;
+    }
+
+    int searchChoice;
+    cout << "Pilih metode pencarian:" << endl;
+    cout << "1. Pencarian Linier (Substring Nama Pembeli)" << endl;
+    cout << "2. Pencarian Biner (Nama Pembeli Tepat Sama - Membutuhkan Pengurutan)" << endl;
+    cout << "Masukkan pilihan (1/2): ";
+    cin >> searchChoice;
+
+    if (cin.fail() || (searchChoice != 1 && searchChoice != 2)) {
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cout << "\nPilihan tidak valid! Membatalkan pencarian.\n";
+        return;
+    }
+    cin.ignore(); // Consume the newline character
 
     string keyword;
     cout << "Masukkan nama pembeli yang dicari: ";
     getline(cin, keyword);
 
-    bool ditemukan = false;
-    cout << "\nHASIL PENCARIAN UNTUK '" << keyword << "':" << endl;
+    clearScreen();
+    cout << "HASIL PENCARIAN UNTUK '" << keyword << "':" << endl;
     tampilkanGaris(120);
 
-    // Header tabel hasil pencarian
+    // Table header for search results
     cout << "| " << left << setw(3) << "No"
          << " | " << setw(20) << "Nama Pembeli"
          << " | " << setw(15) << "Nama Baju"
@@ -434,29 +457,70 @@ void cariTransaksi() {
          << " |" << endl;
     tampilkanGaris(120);
 
-    for (int i = 0; i < jumlahTransaksi; i++) {
-        // Menggunakan find() untuk mencari substring (bisa diubah ke case-insensitive jika perlu)
-        if (namaPembeli[i].find(keyword) != string::npos) {
-            cout << "| " << left << setw(3) << (i + 1)
-                 << " | " << setw(20) << namaPembeli[i].substr(0, 20)
-                 << " | " << setw(15) << namaBaju[i].substr(0, 15)
-                 << " | " << right << setw(8) << jumlahBeli[i]
-                 << " | " << right << setw(12) << fixed << setprecision(0) << hargaSatuan[i]
-                 << " | " << right << setw(15) << fixed << setprecision(0) << totalBayar[i]
-                 << " | " << left << setw(19) << waktuTransaksi[i]
-                 << " |" << endl;
+    bool ditemukan = false;
+    if (searchChoice == 1) { // Linear Search (substring match, case-insensitive)
+        for (int i = 0; i < jumlahTransaksi; i++) {
+            // Convert both strings to lowercase for case-insensitive search
+            string namaPembeliLower = namaPembeli[i];
+            string keywordLower = keyword;
+            transform(namaPembeliLower.begin(), namaPembeliLower.end(), namaPembeliLower.begin(), ::tolower);
+            transform(keywordLower.begin(), keywordLower.end(), keywordLower.begin(), ::tolower);
+
+            if (namaPembeliLower.find(keywordLower) != string::npos) {
+                cout << "| " << left << setw(3) << (i + 1)
+                     << " | " << setw(20) << namaPembeli[i].substr(0, 20)
+                     << " | " << setw(15) << namaBaju[i].substr(0, 15)
+                     << " | " << right << setw(8) << jumlahBeli[i]
+                     << " | " << right << setw(12) << fixed << setprecision(0) << hargaSatuan[i]
+                     << " | " << right << setw(15) << fixed << setprecision(0) << totalBayar[i]
+                     << " | " << left << setw(19) << waktuTransaksi[i]
+                     << " |" << endl;
+                ditemukan = true;
+            }
+        }
+    } else { // Binary Search (exact match, case-sensitive)
+        cout << "\nMelakukan pengurutan data berdasarkan Nama Pembeli untuk pencarian biner...\n";
+        selectionSortByNamaPembeli(); // Sort data by name
+        // After sorting, the original indices are lost. We display based on the new sorted order.
+
+        int found_idx = binarySearchByName(keyword);
+
+        if (found_idx != -1) {
+            // Found at least one match, now find all exact matches around it
             ditemukan = true;
+            int current_idx = found_idx;
+
+            // Move left to find the first occurrence (if duplicates exist)
+            while (current_idx >= 0 && namaPembeli[current_idx] == keyword) {
+                current_idx--;
+            }
+            current_idx++; // Move back to the first exact match
+
+            // Iterate right to display all exact matches
+            while (current_idx < jumlahTransaksi && namaPembeli[current_idx] == keyword) {
+                cout << "| " << left << setw(3) << (current_idx + 1) // Display index in sorted list
+                     << " | " << setw(20) << namaPembeli[current_idx].substr(0, 20)
+                     << " | " << setw(15) << namaBaju[current_idx].substr(0, 15)
+                     << " | " << right << setw(8) << jumlahBeli[current_idx]
+                     << " | " << right << setw(12) << fixed << setprecision(0) << hargaSatuan[current_idx]
+                     << " | " << right << setw(15) << fixed << setprecision(0) << totalBayar[current_idx]
+                     << " | " << left << setw(19) << waktuTransaksi[current_idx]
+                     << " |" << endl;
+                current_idx++;
+            }
+            cout << "\nCatatan: Untuk pencarian biner, data diurutkan berdasarkan nama pembeli. Nomor transaksi (No) mencerminkan posisi dalam daftar yang sudah diurutkan." << endl;
+
         }
     }
 
     if (!ditemukan) {
-        cout << "\nTidak ada transaksi yang cocok dengan nama pembeli: '" << keyword << "'.\n";
+        cout << "\nTidak ada transaksi yang cocok dengan kriteria pencarian Anda.\n";
     } else {
         tampilkanGaris(120);
     }
 }
 
-// Fungsi untuk menampilkan statistik penjualan
+// Function to display sales statistics
 void tampilkanStatistik() {
     clearScreen();
     cout << "STATISTIK PENJUALAN TOKO BAJU" << endl;
@@ -495,14 +559,14 @@ void tampilkanStatistik() {
     cout << "Total Barang Terjual: " << totalBarang << " pcs" << endl;
     cout << "---------------------------------------" << endl;
     cout << "Transaksi Dengan Nilai Tertinggi:" << endl;
-    cout << "  - Pembeli: " << namaPembeli[indeksTertinggi] << endl;
-    cout << "  - Barang: " << namaBaju[indeksTertinggi] << endl;
-    cout << "  - Total: Rp " << fixed << setprecision(2) << totalBayar[indeksTertinggi] << endl;
+    cout << "  - Pembeli: " << namaPembeli[indeksTertinggi] << endl;
+    cout << "  - Barang: " << namaBaju[indeksTertinggi] << endl;
+    cout << "  - Total: Rp " << fixed << setprecision(2) << totalBayar[indeksTertinggi] << endl;
     cout << "---------------------------------------" << endl;
     cout << "Transaksi Dengan Nilai Terendah:" << endl;
-    cout << "  - Pembeli: " << namaPembeli[indeksTerendah] << endl;
-    cout << "  - Barang: " << namaBaju[indeksTerendah] << endl;
-    cout << "  - Total: Rp " << fixed << setprecision(2) << totalBayar[indeksTerendah] << endl;
+    cout << "  - Pembeli: " << namaPembeli[indeksTerendah] << endl;
+    cout << "  - Barang: " << namaBaju[indeksTerendah] << endl;
+    cout << "  - Total: Rp " << fixed << setprecision(2) << totalBayar[indeksTerendah] << endl;
     cout << "---------------------------------------" << endl;
 
     if (jumlahTransaksi > 0) {
@@ -513,7 +577,7 @@ void tampilkanStatistik() {
     tampilkanGaris(50);
 }
 
-// Fungsi untuk mengedit transaksi
+// Function to edit a transaction
 void editTransaksi() {
     clearScreen();
     cout << "EDIT TRANSAKSI" << endl;
@@ -536,7 +600,7 @@ void editTransaksi() {
     }
 
     int index = nomor - 1;
-    cin.ignore(); // Membersihkan buffer setelah cin >> nomor
+    cin.ignore(); // Clear buffer after cin >> nomor
 
     cout << "\n--- Data Transaksi No. " << nomor << " Saat Ini ---" << endl;
     cout << "Nama Pembeli: " << namaPembeli[index] << endl;
@@ -583,16 +647,16 @@ void editTransaksi() {
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
         cout << "Input harga satuan tidak valid atau 0, menggunakan nilai lama (" << fixed << setprecision(2) << hargaSatuan[index] << ").\n";
     }
-    cin.ignore(); // Membersihkan buffer setelah cin untuk harga satuan
+    cin.ignore(); // Clear buffer after cin for unit price
 
-    // Hitung ulang total bayar
+    // Recalculate total payment
     totalBayar[index] = jumlahBeli[index] * hargaSatuan[index];
-    waktuTransaksi[index] = getCurrentTime(); // Update waktu transaksi saat diedit
+    waktuTransaksi[index] = getCurrentTime(); // Update transaction time when edited
 
     cout << "\nTransaksi No. " << nomor << " berhasil diperbarui!" << endl;
 }
 
-// Fungsi untuk menghapus transaksi
+// Function to delete a transaction
 void hapusTransaksi() {
     clearScreen();
     cout << "HAPUS TRANSAKSI" << endl;
@@ -628,10 +692,10 @@ void hapusTransaksi() {
     char konfirmasi;
     cout << "\nYakin ingin menghapus transaksi ini? (y/n): ";
     cin >> konfirmasi;
-    cin.ignore(); // Membersihkan buffer
+    cin.ignore(); // Clear buffer
 
     if (konfirmasi == 'y' || konfirmasi == 'Y') {
-        // Geser semua data setelah index yang dihapus
+        // Shift all data after the deleted index
         for (int i = index; i < jumlahTransaksi - 1; i++) {
             namaPembeli[i] = namaPembeli[i + 1];
             namaBaju[i] = namaBaju[i + 1];
@@ -647,16 +711,16 @@ void hapusTransaksi() {
     }
 }
 
-// Fungsi untuk menyimpan data ke file
+// Function to save data to file
 void simpanKeFile() {
     clearScreen();
     cout << "SIMPAN DATA TRANSAKSI KE FILE" << endl;
     tampilkanGaris(40);
 
-    ofstream fileTransaksi("transaksi_toko.txt"); // Membuat atau membuka file
+    ofstream fileTransaksi("transaksi_toko.txt"); // Create or open file
 
     if (fileTransaksi.is_open()) {
-        fileTransaksi << jumlahTransaksi << "\n"; // Baris pertama: jumlah transaksi
+        fileTransaksi << jumlahTransaksi << "\n"; // First line: number of transactions
         for (int i = 0; i < jumlahTransaksi; i++) {
             fileTransaksi << namaPembeli[i] << "\n";
             fileTransaksi << namaBaju[i] << "\n";
@@ -673,13 +737,13 @@ void simpanKeFile() {
     }
 }
 
-// Fungsi baru: Memuat data dari file
+// Function: Load data from file
 void muatDataDariFile() {
     ifstream fileTransaksi("transaksi_toko.txt");
 
     if (fileTransaksi.is_open()) {
         fileTransaksi >> jumlahTransaksi;
-        fileTransaksi.ignore(numeric_limits<streamsize>::max(), '\n'); // Konsumsi newline setelah membaca int
+        fileTransaksi.ignore(numeric_limits<streamsize>::max(), '\n'); // Consume newline after reading int
 
         for (int i = 0; i < jumlahTransaksi; i++) {
             getline(fileTransaksi, namaPembeli[i]);
@@ -687,7 +751,7 @@ void muatDataDariFile() {
             fileTransaksi >> jumlahBeli[i];
             fileTransaksi >> hargaSatuan[i];
             fileTransaksi >> totalBayar[i];
-            fileTransaksi.ignore(numeric_limits<streamsize>::max(), '\n'); // Konsumsi newline setelah membaca double
+            fileTransaksi.ignore(numeric_limits<streamsize>::max(), '\n'); // Consume newline after reading double
             getline(fileTransaksi, waktuTransaksi[i]);
         }
         fileTransaksi.close();
@@ -698,7 +762,7 @@ void muatDataDariFile() {
     pauseScreen();
 }
 
-// Fungsi untuk menampilkan transaksi tertinggi
+// Function to display highest transaction
 void tampilkanTransaksiTertinggi() {
     clearScreen();
     cout << "DETAIL TRANSAKSI DENGAN NILAI TERTINGGI" << endl;
@@ -729,7 +793,7 @@ void tampilkanTransaksiTertinggi() {
     tampilkanGaris(45);
 }
 
-// Fungsi untuk menampilkan transaksi terendah
+// Function to display lowest transaction
 void tampilkanTransaksiTerendah() {
     clearScreen();
     cout << "DETAIL TRANSAKSI DENGAN NILAI TERENDAH" << endl;
@@ -760,7 +824,7 @@ void tampilkanTransaksiTerendah() {
     tampilkanGaris(45);
 }
 
-// Fungsi Selection Sort untuk mengurutkan transaksi berdasarkan Total Bayar (ascending)
+// Selection Sort function to sort transactions by Total Pay (ascending)
 void selectionSortByTotalBayar() {
     for (int i = 0; i < jumlahTransaksi - 1; i++) {
         int min_idx = i;
@@ -770,7 +834,7 @@ void selectionSortByTotalBayar() {
             }
         }
 
-        // Tukar semua elemen data transaksi secara paralel
+        // Swap all transaction data elements in parallel
         swap(namaPembeli[min_idx], namaPembeli[i]);
         swap(namaBaju[min_idx], namaBaju[i]);
         swap(jumlahBeli[min_idx], jumlahBeli[i]);
@@ -780,19 +844,19 @@ void selectionSortByTotalBayar() {
     }
 }
 
-// Fungsi pengurutan berdasarkan Waktu Transaksi (terbaru ke terlama) - Menggunakan Selection Sort
+// Sorting function by Transaction Time (newest to oldest) - Uses Selection Sort
 void sortTransactionsByDate() {
     for (int i = 0; i < jumlahTransaksi - 1; i++) {
-        int max_idx = i; // Cari yang terbaru (terbesar)
+        int max_idx = i; // Find the newest (largest)
         for (int j = i + 1; j < jumlahTransaksi; j++) {
-            // Membandingkan string waktu secara leksikografis
-            // String waktu dalam format YYYY-MM-DD HH:MM:SS dapat langsung dibandingkan
+            // Comparing time strings lexicographically
+            // Time strings in YYYY-MM-DD HH:MM:SS format can be directly compared
             if (waktuTransaksi[j] > waktuTransaksi[max_idx]) {
                 max_idx = j;
             }
         }
 
-        // Tukar semua elemen data transaksi secara paralel
+        // Swap all transaction data elements in parallel
         swap(namaPembeli[max_idx], namaPembeli[i]);
         swap(namaBaju[max_idx], namaBaju[i]);
         swap(jumlahBeli[max_idx], jumlahBeli[i]);
@@ -802,7 +866,52 @@ void sortTransactionsByDate() {
     }
 }
 
-// Fungsi baru: Filter transaksi berdasarkan rentang tanggal
+// NEW: Selection Sort function to sort transactions by Customer Name (ascending)
+void selectionSortByNamaPembeli() {
+    for (int i = 0; i < jumlahTransaksi - 1; i++) {
+        int min_idx = i;
+        for (int j = i + 1; j < jumlahTransaksi; j++) {
+            // Compare name strings lexicographically
+            if (namaPembeli[j] < namaPembeli[min_idx]) {
+                min_idx = j;
+            }
+        }
+
+        // Swap all transaction data elements in parallel
+        swap(namaPembeli[min_idx], namaPembeli[i]);
+        swap(namaBaju[min_idx], namaBaju[i]);
+        swap(jumlahBeli[min_idx], jumlahBeli[i]);
+        swap(hargaSatuan[min_idx], hargaSatuan[i]);
+        swap(totalBayar[min_idx], totalBayar[i]);
+        swap(waktuTransaksi[min_idx], waktuTransaksi[i]);
+    }
+}
+
+// NEW: Binary Search function to find transactions by Customer Name (exact match)
+// Customer names must be sorted in ascending order before calling this function
+int binarySearchByName(const string& key) {
+    int low = 0;
+    int high = jumlahTransaksi - 1;
+    int result_idx = -1;
+
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+
+        if (namaPembeli[mid] == key) {
+            result_idx = mid;
+            // Important: Continue searching in the left part to find the first occurrence (if duplicates)
+            high = mid - 1;
+        } else if (namaPembeli[mid] < key) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return result_idx;
+}
+
+
+// Function: Filter transactions by date range
 void filterTransaksiByTanggal() {
     clearScreen();
     cout << "FILTER TRANSAKSI BERDASARKAN TANGGAL" << endl;
@@ -824,6 +933,7 @@ void filterTransaksiByTanggal() {
         cout << "Format tanggal tidak valid atau tanggal tidak ada! Masukkan Tanggal Mulai (YYYY MM DD): ";
         cin >> startYear >> startMonth >> startDay;
     }
+    cin.ignore(); // Consume the newline character
 
     cout << "Masukkan Tanggal Akhir (YYYY MM DD): ";
     cin >> endYear >> endMonth >> endDay;
@@ -833,25 +943,25 @@ void filterTransaksiByTanggal() {
         cout << "Format tanggal tidak valid atau tanggal tidak ada! Masukkan Tanggal Akhir (YYYY MM DD): ";
         cin >> endYear >> endMonth >> endDay;
     }
-    cin.ignore(); // Membersihkan buffer
+    cin.ignore(); // Consume the newline character
 
-    // Konversi tanggal input menjadi string YYYY-MM-DD untuk perbandingan
+    // Convert input dates to string for comparison (YYYY-MM-DD format)
     stringstream ssStart, ssEnd;
     ssStart << setfill('0') << setw(4) << startYear << "-"
             << setfill('0') << setw(2) << startMonth << "-"
             << setfill('0') << setw(2) << startDay;
-    string tanggalMulaiStr = ssStart.str();
+    string startDateStr = ssStart.str();
 
     ssEnd << setfill('0') << setw(4) << endYear << "-"
           << setfill('0') << setw(2) << endMonth << "-"
           << setfill('0') << setw(2) << endDay;
-    string tanggalAkhirStr = ssEnd.str();
+    string endDateStr = ssEnd.str();
 
-
-    cout << "\nHASIL FILTER TRANSAKSI DARI " << tanggalMulaiStr << " HINGGA " << tanggalAkhirStr << ":" << endl;
+    bool ditemukan = false;
+    cout << "\nHASIL FILTER TRANSAKSI DARI " << startDateStr << " HINGGA " << endDateStr << ":" << endl;
     tampilkanGaris(120);
 
-    // Header tabel hasil filter
+    // Table header for filtered results
     cout << "| " << left << setw(3) << "No"
          << " | " << setw(20) << "Nama Pembeli"
          << " | " << setw(15) << "Nama Baju"
@@ -862,13 +972,14 @@ void filterTransaksiByTanggal() {
          << " |" << endl;
     tampilkanGaris(120);
 
-    bool ditemukan = false;
-    int noUrut = 1;
+    int count = 0;
     for (int i = 0; i < jumlahTransaksi; i++) {
-        string tanggalTransaksi = waktuTransaksi[i].substr(0, 10); // Ambil bagian tanggal saja
+        // Extract only the date part (YYYY-MM-DD) from waktuTransaksi
+        string transactionDateStr = waktuTransaksi[i].substr(0, 10); // "YYYY-MM-DD"
 
-        if (tanggalTransaksi >= tanggalMulaiStr && tanggalTransaksi <= tanggalAkhirStr) {
-            cout << "| " << left << setw(3) << noUrut++
+        // Compare string dates
+        if (transactionDateStr >= startDateStr && transactionDateStr <= endDateStr) {
+            cout << "| " << left << setw(3) << (i + 1) // Using original index for now
                  << " | " << setw(20) << namaPembeli[i].substr(0, 20)
                  << " | " << setw(15) << namaBaju[i].substr(0, 15)
                  << " | " << right << setw(8) << jumlahBeli[i]
@@ -877,6 +988,7 @@ void filterTransaksiByTanggal() {
                  << " | " << left << setw(19) << waktuTransaksi[i]
                  << " |" << endl;
             ditemukan = true;
+            count++;
         }
     }
 
@@ -884,10 +996,11 @@ void filterTransaksiByTanggal() {
         cout << "\nTidak ada transaksi dalam rentang tanggal tersebut.\n";
     } else {
         tampilkanGaris(120);
+        cout << "Total Transaksi Filtered: " << count << " transaksi" << endl;
     }
 }
 
-// Fungsi baru: Filter transaksi berdasarkan rentang total bayar
+// Function to filter transactions by total amount range
 void filterTransaksiByTotal() {
     clearScreen();
     cout << "FILTER TRANSAKSI BERDASARKAN RENTANG TOTAL BAYAR" << endl;
@@ -913,16 +1026,17 @@ void filterTransaksiByTotal() {
     while (cin.fail() || maxTotal < minTotal) {
         cin.clear();
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
-        cout << "Input tidak valid! Maksimum tidak boleh kurang dari Minimum. Masukkan angka positif untuk Total Bayar Maksimum: ";
+        cout << "Input tidak valid! Masukkan angka yang lebih besar dari atau sama dengan Total Minimum: ";
         cin >> maxTotal;
     }
-    cin.ignore(); // Membersihkan buffer
+    cin.ignore(); // Consume the newline character
 
+    bool ditemukan = false;
     cout << "\nHASIL FILTER TRANSAKSI DENGAN TOTAL BAYAR ANTARA Rp " << fixed << setprecision(2) << minTotal
          << " DAN Rp " << fixed << setprecision(2) << maxTotal << ":" << endl;
     tampilkanGaris(120);
 
-    // Header tabel hasil filter
+    // Table header for filtered results
     cout << "| " << left << setw(3) << "No"
          << " | " << setw(20) << "Nama Pembeli"
          << " | " << setw(15) << "Nama Baju"
@@ -933,11 +1047,10 @@ void filterTransaksiByTotal() {
          << " |" << endl;
     tampilkanGaris(120);
 
-    bool ditemukan = false;
-    int noUrut = 1;
+    int count = 0;
     for (int i = 0; i < jumlahTransaksi; i++) {
         if (totalBayar[i] >= minTotal && totalBayar[i] <= maxTotal) {
-            cout << "| " << left << setw(3) << noUrut++
+            cout << "| " << left << setw(3) << (i + 1)
                  << " | " << setw(20) << namaPembeli[i].substr(0, 20)
                  << " | " << setw(15) << namaBaju[i].substr(0, 15)
                  << " | " << right << setw(8) << jumlahBeli[i]
@@ -946,6 +1059,7 @@ void filterTransaksiByTotal() {
                  << " | " << left << setw(19) << waktuTransaksi[i]
                  << " |" << endl;
             ditemukan = true;
+            count++;
         }
     }
 
@@ -953,111 +1067,121 @@ void filterTransaksiByTotal() {
         cout << "\nTidak ada transaksi dalam rentang total bayar tersebut.\n";
     } else {
         tampilkanGaris(120);
+        cout << "Total Transaksi Filtered: " << count << " transaksi" << endl;
     }
 }
 
-// Fungsi baru: Export data ke CSV
+// Function to export data to CSV
 void exportToCSV() {
     clearScreen();
-    cout << "EXPORT DATA TRANSAKSI KE FILE CSV" << endl;
+    cout << "EXPORT DATA TRANSAKSI KE CSV" << endl;
     tampilkanGaris(40);
 
     if (jumlahTransaksi == 0) {
-        cout << "Belum ada data transaksi untuk diexport." << endl;
+        cout << "Belum ada data transaksi untuk diekspor." << endl;
         return;
     }
 
-    ofstream fileCSV("transaksi_toko.csv");
+    ofstream csvFile("transaksi_toko.csv");
 
-    if (fileCSV.is_open()) {
-        // Tulis header CSV
-        fileCSV << "No,Nama Pembeli,Nama Baju,Jumlah Beli,Harga Satuan,Total Bayar,Waktu Transaksi\n";
+    if (csvFile.is_open()) {
+        // CSV Header
+        csvFile << "No,Nama Pembeli,Nama Baju,Jumlah Beli,Harga Satuan,Total Bayar,Waktu Transaksi\n";
 
-        // Tulis data transaksi
+        // CSV Data
         for (int i = 0; i < jumlahTransaksi; i++) {
-            fileCSV << (i + 1) << ",";
-            fileCSV << "\"" << namaPembeli[i] << "\","; // Gunakan kutip ganda untuk string
-            fileCSV << "\"" << namaBaju[i] << "\",";
-            fileCSV << jumlahBeli[i] << ",";
-            fileCSV << fixed << setprecision(2) << hargaSatuan[i] << ",";
-            fileCSV << fixed << setprecision(2) << totalBayar[i] << ",";
-            fileCSV << "\"" << waktuTransaksi[i] << "\"\n";
+            csvFile << (i + 1) << ","
+                    << "\"" << namaPembeli[i] << "\"," // Enclose in quotes to handle commas in names
+                    << "\"" << namaBaju[i] << "\","
+                    << jumlahBeli[i] << ","
+                    << fixed << setprecision(2) << hargaSatuan[i] << ","
+                    << fixed << setprecision(2) << totalBayar[i] << ","
+                    << waktuTransaksi[i] << "\n";
         }
-        fileCSV.close();
-        cout << "Data transaksi berhasil diexport ke file 'transaksi_toko.csv'!\n";
-        cout << jumlahTransaksi << " record diexport." << endl;
+        csvFile.close();
+        cout << "Data transaksi berhasil diekspor ke file 'transaksi_toko.csv'!\n";
+        cout << jumlahTransaksi << " record transaksi diekspor." << endl;
     } else {
-        cout << "Gagal membuka file 'transaksi_toko.csv' untuk export.\n";
+        cout << "Gagal membuka file 'transaksi_toko.csv' untuk ekspor.\n";
     }
 }
 
-
-// Fungsi simulasi login
+// Function: Simulate user login
 bool loginUser(string& username, string& role) {
-    const int MAX_LOGIN_ATTEMPTS = 3;
-    string user, pass;
-    int attempts = 0;
+    string inputUsername, inputPassword;
+    int loginAttempts = 0;
+    const int MAX_ATTEMPTS = 3;
 
-    // Data user dummy (bisa dari file atau database sungguhan)
-    // Username: password: role
-    // admin: admin123: admin
-    // kasir: kasir123: kasir
-    string validUsernameAdmin = "admin";
-    string validPasswordAdmin = "admin123";
-    string validUsernameKasir = "kasir";
-    string validPasswordKasir = "kasir123";
+    // Example user data
+    // Note: In a real application, this data would be securely stored (e.g., in a database)
+    // and passwords would be hashed. This is just a basic simulation.
+    const string ADMIN_USER = "admin";
+    const string ADMIN_PASS = "admin123";
+    const string KASIR_USER = "kasir";
+    const string KASIR_PASS = "kasir123";
 
-    while (attempts < MAX_LOGIN_ATTEMPTS) {
-        cout << "\n--- LOGIN ---" << endl;
+    do {
+        cout << "\nLOGIN SYSTEM" << endl;
+        tampilkanGaris(20);
         cout << "Username: ";
-        getline(cin, user);
+        getline(cin, inputUsername);
         cout << "Password: ";
-        getline(cin, pass);
+        getline(cin, inputPassword);
 
-        if (user == validUsernameAdmin && pass == validPasswordAdmin) {
-            username = validUsernameAdmin;
+        if (inputUsername == ADMIN_USER && inputPassword == ADMIN_PASS) {
+            username = ADMIN_USER;
             role = "admin";
             return true;
-        } else if (user == validUsernameKasir && pass == validPasswordKasir) {
-            username = validUsernameKasir;
+        } else if (inputUsername == KASIR_USER && inputPassword == KASIR_PASS) {
+            username = KASIR_USER;
             role = "kasir";
             return true;
         } else {
-            cout << "Username atau password salah. Sisa percobaan: " << (MAX_LOGIN_ATTEMPTS - 1 - attempts) << endl;
-            attempts++;
+            cout << "\nLogin gagal. Username atau password salah. Sisa percobaan: " << (MAX_ATTEMPTS - 1 - loginAttempts) << endl;
+            loginAttempts++;
+            pauseScreen();
+            clearScreen();
+            tampilkanHeader();
         }
-    }
-    return false; // Login gagal setelah beberapa percobaan
+    } while (loginAttempts < MAX_ATTEMPTS);
+
+    return false; // Login failed after multiple attempts
 }
 
-
-// Fungsi untuk mendapatkan waktu saat ini dalam format YYYY-MM-DD HH:MM:SS
+// Function to get current time
 string getCurrentTime() {
     time_t now = time(0);
-    struct tm tstruct;
-    char buf[80];
-    tstruct = *localtime(&now);
-    strftime(buf, sizeof(buf), "%Y-%m-%d %X", &tstruct); // %X untuk waktu (HH:MM:SS)
-    return buf;
+    tm* ltm = localtime(&now);
+
+    stringstream ss;
+    ss << setfill('0') << setw(4) << (1900 + ltm->tm_year) << "-"
+       << setfill('0') << setw(2) << (1 + ltm->tm_mon) << "-"
+       << setfill('0') << setw(2) << ltm->tm_mday << " "
+       << setfill('0') << setw(2) << ltm->tm_hour << ":"
+       << setfill('0') << setw(2) << ltm->tm_min << ":"
+       << setfill('0') << setw(2) << ltm->tm_sec;
+    return ss.str();
 }
 
-// Fungsi untuk membersihkan layar
+// Function to clear console screen
 void clearScreen() {
+    // For Windows
     #ifdef _WIN32
         system("cls");
+    // For Linux/macOS
     #else
         system("clear");
     #endif
 }
 
-// Fungsi untuk pause/menunggu input
+// Function to pause console screen
 void pauseScreen() {
-    cout << "\nTekan Enter untuk melanjutkan...";
-    cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Pastikan buffer bersih
-    // cin.get(); // Sudah dibersihkan oleh ignore di atas
+    cout << "\nTekan ENTER untuk melanjutkan...";
+    cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Consume remaining input
+    // cin.get(); // Wait for enter key
 }
 
-// Fungsi untuk menampilkan garis
+// Function to display a separator line
 void tampilkanGaris(int panjang) {
     for (int i = 0; i < panjang; i++) {
         cout << "-";
@@ -1065,11 +1189,12 @@ void tampilkanGaris(int panjang) {
     cout << endl;
 }
 
-// --- FUNGSI HELPER UNTUK VALIDASI TANGGAL ---
+// Helper function: Check if year is a leap year
 bool isLeapYear(int year) {
     return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
 }
 
+// Helper function: Return number of days in a month
 int daysInMonth(int year, int month) {
     if (month < 1 || month > 12) return 0;
     if (month == 2) {
@@ -1081,9 +1206,11 @@ int daysInMonth(int year, int month) {
     }
 }
 
+// Helper function: Check if date is valid
 bool isValidDate(int year, int month, int day) {
-    if (year < 1900 || year > 2100) return false; // Batasan tahun
+    if (year < 1900 || year > 2100) return false; // Year limitation
     if (month < 1 || month > 12) return false;
     if (day < 1 || day > daysInMonth(year, month)) return false;
     return true;
 }
+
